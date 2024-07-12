@@ -1,0 +1,11 @@
+{
+ 	"server_ip": "",
+ 	"server_port": "",
+ 	"twin_ip": "92.55.120.77",
+ 	"twin_port": "9001",
+ 	"sync_folder": "~/Projects/Personal/Notes",
+ 	"ignored": [
+ 	 	"node_modules",
+ 	 	"vendor"
+ 	]
+}
