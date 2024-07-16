@@ -17,7 +17,11 @@ func main() {
 	//displayUserInfo()
 	getUserInput()
 
-	go sync.Watcher()
+	filelist := sync.NewFileList()
+
+	go sync.Watcher(filelist)
+	go sync.Send(filelist)
+
 	select {}
 }
 

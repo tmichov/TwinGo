@@ -11,7 +11,7 @@ import (
 	"github.com/tmichov/twingo/internal/config"
 )
 
-func Watcher() {
+func Watcher(filelist *FileList) {
 	watcher, err := fsnotify.NewWatcher()
 
 	if err != nil {
@@ -29,22 +29,33 @@ func Watcher() {
 					return
 				}
 
-				fmt.Println("Event: ", event)
+				fmt.Println("Event: ", event.Op)
 
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					fmt.Println("Modified file: ", event.Name)
+					filelist.AddFile(event.Name)
+				}
+
+				if event.Op&fsnotify.Create == fsnotify.Create {
+					fmt.Println("created file: ", event.Name)
+					filelist.AddFile(event.Name)
+				}
+
+				if event.Op&fsnotify.Remove == fsnotify.Remove {
+					fmt.Println("deleted file: ", event.Name)
+					filelist.RemoveFile(event.Name)
 				}
 
 			case err, ok := <-watcher.Errors:
 				if !ok {
-					fmt.Println("Watcher error channel closed")
+					fmt.Println("Watcher errorj29k channel closed")
 					return
 				}
-				
+
 				fmt.Println("Error: ", err)
 			}
 		}
-	}()
+		}()
 
 	err = filepath.WalkDir(getFilePath(), func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -65,7 +76,7 @@ func Watcher() {
 
 		return nil
 	});
-	
+
 	if err != nil {
 		log.Fatalf("Error walking path: %v", err)
 	}
@@ -73,17 +84,22 @@ func Watcher() {
 	<-make(chan bool)
 }
 
-func getFilePath() string {
+func getHomeDir() string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		log.Fatalf("Error getting home directory: %v", err)
 	}
 
+	return homeDir
+}
+
+func getFilePath() string {
+	homeDir := getHomeDir()
+
 	filePath := config.AppConfig.SyncFolder;
 
 	fmt.Println("Syncing folder: ", filePath)
 
-	// replace ~ with home directory
 	if filePath[0] == '~' {
 		filePath = homeDir + filePath[1:]
 	}
