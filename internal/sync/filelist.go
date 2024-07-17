@@ -8,48 +8,57 @@ import (
 	"github.com/tmichov/twingo/internal/config"
 )
 
+type WatchedFile struct {
+	path string	
+	isDir bool
+}
+
+type DeletedFile struct {
+	path string
+}
+
 type FileList struct {
 	sync.Mutex
-	Files map[string]struct{}
-	DeletedFiles map[string]struct{}
+	Files map[string]WatchedFile
+	DeletedFiles map[string]DeletedFile
 }
 
 func NewFileList() *FileList {
 	return &FileList{
-		Files: make(map[string]struct{}),
-		DeletedFiles: make(map[string]struct{}),
+		Files: make(map[string]WatchedFile),
+		DeletedFiles: make(map[string]DeletedFile),
 	}
 }
 
-func (fl *FileList) AddFile(filename string) {
+func (fl *FileList) AddWatchedFile(filename string, isDir bool) {
 	fl.Lock()
 	defer fl.Unlock()
 
 	path := config.AppConfig.SyncFolder;
 	homeDir := getHomeDir()
 
-	newName := strings.Replace(filename, strings.Replace(path, "~", homeDir, 1), "", 1);
+	newName := strings.Replace(filename , strings.Replace(path, "~", homeDir, 1), "", 1);
 
-	fl.Files[newName] = struct{}{}
+	fl.Files[filename] = WatchedFile{path: newName, isDir: isDir}
 
-	if _, ok := fl.DeletedFiles[newName]; ok {
-		delete(fl.DeletedFiles, newName)
+	if _, ok := fl.DeletedFiles[filename]; ok {
+		delete(fl.DeletedFiles, filename)
 	}
 }
 
-func (fl *FileList) RemoveFile(filename string) {
+func (fl *FileList) DeletedItem(filename string) {
 	fl.Lock()
-
 	defer fl.Unlock()
 
 	path := config.AppConfig.SyncFolder;
 	homeDir := getHomeDir()
-	newName := strings.Replace(filename, strings.Replace(path, "~", homeDir, 1), "", 1);
 
-	if _, ok := fl.Files[newName]; !ok {
-		fl.DeletedFiles[newName] = struct{}{}
+	newName := strings.Replace(filename , strings.Replace(path, "~", homeDir, 1), "", 1);
+
+	if _, ok := fl.Files[filename]; ok {
+		delete(fl.Files, filename)
 	} else {
-		delete(fl.Files, newName)
+		fl.DeletedFiles[filename] = DeletedFile{path: newName}
 	}
 }
 
@@ -57,14 +66,12 @@ func (fl *FileList) PrintFiles() {
 	fl.Lock()
 	defer fl.Unlock()
 
-	fmt.Println("Files: ")
-
-	for file := range fl.Files {
-		fmt.Println(file)
+	for k, v := range fl.Files {
+		fmt.Println("File: ", k, v)
 	}
 
-	fmt.Println("Deleted files: ")
-	for file := range fl.DeletedFiles {
-		fmt.Println(file)
+	for k, v := range fl.DeletedFiles {
+		fmt.Println("Deleted: ", k, v)
 	}
 }
+

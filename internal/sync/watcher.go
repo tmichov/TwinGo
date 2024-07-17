@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/tmichov/twingo/internal/config"
@@ -29,21 +30,46 @@ func Watcher(filelist *FileList) {
 					return
 				}
 
-				fmt.Println("Event: ", event.Op)
+				if event.Op&fsnotify.Remove == fsnotify.Remove {
+					fmt.Println("Deleted in watcher: ", event.Name)
+					
+					// remove all watchers for all subdirectories
+					list := watcher.WatchList()
+					for _, item := range list {
+						if strings.HasPrefix(item, event.Name) {
+							watcher.Remove(item)
+						}
+					}
+
+					filelist.DeletedItem(event.Name)
+
+					continue;
+				}
+
+				info, err := os.Stat(event.Name)
+				if err != nil {
+					fmt.Println("Error getting file info: ", err)
+					continue
+				}
+
+				fmt.Println("Event: ", event)
 
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					fmt.Println("Modified file: ", event.Name)
-					filelist.AddFile(event.Name)
+					filelist.AddWatchedFile(event.Name, false)
+					continue
 				}
 
 				if event.Op&fsnotify.Create == fsnotify.Create {
-					fmt.Println("created file: ", event.Name)
-					filelist.AddFile(event.Name)
-				}
+					if info.IsDir() {
+						fmt.Println("Created folder: ", event.Name)
+						filelist.AddWatchedFile(event.Name, true)
 
-				if event.Op&fsnotify.Remove == fsnotify.Remove {
-					fmt.Println("deleted file: ", event.Name)
-					filelist.RemoveFile(event.Name)
+						watcher.Add(event.Name)
+					} else {
+						fmt.Println("Created file in watched: ", event.Name)
+						filelist.AddWatchedFile(event.Name, false)
+					}
 				}
 
 			case err, ok := <-watcher.Errors:
@@ -75,7 +101,7 @@ func Watcher(filelist *FileList) {
 		}
 
 		return nil
-	});
+		});
 
 	if err != nil {
 		log.Fatalf("Error walking path: %v", err)
